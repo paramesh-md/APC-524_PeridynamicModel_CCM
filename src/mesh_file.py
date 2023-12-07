@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import product
 
 def mat_parameters(length, width, thick, num_points):
     """ This function calculates the material parameters.
@@ -51,34 +52,63 @@ def number_family(total_nodes):
     """
     numfam = np.zeros((total_nodes, 1), dtype=int)
     pointfam = np.zeros((total_nodes, 1), dtype=int)
-    alflag = np.zeros((total_nodes, 1), dtype=int)
 
     return numfam, pointfam
 
 
-def create_grid(total_nodes, num_points, dx, width, thick, length):
+# def create_grid(total_nodes, num_points, dx, width, thick, length):
 
+#     alflag = np.zeros((total_nodes, 1), dtype=int)
+#     dimension = len(num_points)
+#     nnum = 0
+#     x = np.zeros((total_nodes, dimension), dtype=float)
+#     for i in range(num_points[2]):
+#         for j in range(num_points[1]):
+#             for k in range(num_points[0]):
+
+#                 val_x = (dx / 2.0) + k * dx
+#                 val_y = -0.5 * width + (dx / 2.0) + j * dx
+#                 val_z = -0.5 * thick + (dx / 2.0) + i * dx
+
+#                 x[nnum, 0] = val_x
+#                 x[nnum, 1] = val_y
+#                 x[nnum, 2] = val_z
+                
+
+#                 if val_x > (length-dx):
+#                     alflag[nnum, 0] = 1
+
+#                 nnum += 1
+
+#     return x, alflag
+
+
+
+def create_grid(total_nodes, num_points, dx, width, thick, length):
+    
     alflag = np.zeros((total_nodes, 1), dtype=int)
     dimension = len(num_points)
-    nnum = 0
     x = np.zeros((total_nodes, dimension), dtype=float)
-    for i in range(num_points[2]):
-        for j in range(num_points[1]):
-            for k in range(num_points[0]):
 
-                val_x = (dx / 2.0) + k * dx
-                val_y = -0.5 * width + (dx / 2.0) + j * dx
-                val_z = -0.5 * thick + (dx / 2.0) + i * dx
+    indices = product(range(num_points[2]), range(num_points[1]), range(num_points[0]))
 
-                x[nnum, 0] = val_x
-                x[nnum, 1] = val_y
-                x[nnum, 2] = val_z
-                nnum += 1
+    for nnum, (i, j, k) in enumerate(indices):
+        val_x = (dx / 2.0) + k * dx
+        val_y = -0.5 * width + (dx / 2.0) + j * dx
+        val_z = -0.5 * thick + (dx / 2.0) + i * dx
 
-                if val_x > (length-dx):
-                    alflag[nnum, 0] = 1
+        x[nnum, 0] = val_x
+        x[nnum, 1] = val_y
+        x[nnum, 2] = val_z
+
+        if val_x > (length - dx):
+            alflag[nnum, 0] = 1
+
 
     return x, alflag
+
+
+    
     
 
 

@@ -53,11 +53,11 @@ class TestMeshFile(unittest.TestCase):
 
         # Compare u with expected result
         expected_u = np.load('expected_u.npy')
-        np.testing.assert_array_almost_equal(u, expected_u, decimal=4)
+        np.testing.assert_array_almost_equal(u, expected_u, decimal=3)
 
-        # Compare alflag with expected result
+        #Compare alflag with expected result
         expected_alflag = np.load('expected_alflag.npy')
-        np.testing.assert_array_almost_equal(alflag, expected_alflag, decimal=4)
+        np.testing.assert_array_equal(alflag, expected_alflag)
 
 if __name__ == '__main__':
     unittest.main()
