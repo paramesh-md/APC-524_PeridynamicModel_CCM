@@ -182,8 +182,8 @@ def horizon(total_nodes, u, delta):
         for j in range(total_nodes):
             idist = calculate_idist(u, i, j)
             if i != j and idist <= delta:
-                numfam[i-1, 0] += 1
-                nodefam[pointfam[i-1, 0] + numfam[i-1, 0] - 1, 0] = j
+                numfam[i, 0] += 1
+                nodefam[pointfam[i, 0] + numfam[i, 0] - 1, 0] = j
 
     return [numfam, pointfam, nodefam]
 
@@ -221,6 +221,7 @@ def surface_correction(total_nodes, dx, u, delta, mat_family, bc, loading_direct
             cnode = nodefam[pointfam[i, 0] + j-1, 0]
 
             if i == cnode:
+                print(i)
                 continue
 
             idist = np.sqrt(np.sum((u[cnode, :] - u[i, :])**2))
@@ -233,10 +234,6 @@ def surface_correction(total_nodes, dx, u, delta, mat_family, bc, loading_direct
             else:
                 fac = 0.0
             
-            
-            if i == 2:
-                break    
-            print(nlength - idist)
             strain_dens[i, val] += 0.5 * 0.5 * bc * ((nlength - idist) / idist)**2 * idist * volume * fac
         
         #print(strain_dens[i, val])
