@@ -10,13 +10,14 @@ def mat_parameters(**kwargs):
     thick (float): The thickness of the material.
     num_points (list): A list of integers that specify the number of points in each dimension.
     modulus (float): The modulus of the material.
-
     Returns:
     dx (float): Discretization along x.
     dy (float): Discretization along y.
     dz (float): Discretization along z.
     delta (float): The horizon of each material point x_k.
-    bc (float): The peridynamic bond constant.
+    bc (float): The bond constant.
+    area (float): The area of each material point.
+    volume (float): The volume of each material point.
     """
     
     kwargs['dx'] = kwargs['length'] / kwargs['num_points'][0]
@@ -40,9 +41,7 @@ def total_nodes(**kwargs):
     """ This function calculates the total number of nodes in the grid.
     Parameters:
     num_points (list): A list of integers that specify the number of points in each dimension.
-    nbounds (int): The number of boundary points.
-    direction (int): The direction of the boundary.
-
+    nbounds (int): The number of boundary nodes.
     Returns:
     totnode (int): The total number of nodes in the grid.
     """
@@ -66,7 +65,7 @@ def total_nodes(**kwargs):
 
 
 def create_grid(total_nodes, **kwargs):
-    """ This function specifies the locations of the material points.
+    """ This function creates the grid of material points.
     Parameters:
     total_nodes (int): The total number of nodes in the grid.
     num_points (list): A list of integers that specify the number of points in each dimension.
@@ -76,8 +75,7 @@ def create_grid(total_nodes, **kwargs):
     length (float): The length of the material.
     Returns:
     x (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points.
-    alflag (numpy.ndarray): A numpy array with dimensions (total_nodes, 1) that sets the total number of material pointsi
-    in the family to 100.
+    alflag (numpy.ndarray): A numpy array with dimensions (total_nodes, 1) that specifies the boundary.
     """
 
     alflag = np.zeros((total_nodes, 1), dtype=int)
@@ -105,7 +103,7 @@ def create_grid(total_nodes, **kwargs):
     return x, alflag
 
 def boundary_region(x, **kwargs):
-    """ This function specifies the material points in the boundary region.
+    """ This function creates the boundary region of material points.
     Parameters:
     x (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points.
     num_points (list): A list of integers that specify the number of points in each dimension.
@@ -114,8 +112,7 @@ def boundary_region(x, **kwargs):
     thick (float): The thickness of the material.
     length (float): The length of the material.
     Returns:
-    x (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points
-    and boundary.
+    x (numpy.ndarray): An updated numpy array with dimensions (total_nodes, 3) that specifies the locations of the material and boundary points.
     """
 
     ndivz, ndivy, nbnds = kwargs['num_points'][2], kwargs['num_points'][1], 3
@@ -136,48 +133,42 @@ def boundary_region(x, **kwargs):
     return x
 
 def calculate_idist(u, i, j):
-    """
-    This function computes the Euclidean distance between two points u[i] and u[j].
-    
+    """ This function computes the Euclidean distance between two points u[i] and u[j].
     Parameters:
     u (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points.
     i (int): The index of the first point.
     j (int): The index of the second point.
-
     Returns:
     idist (float): The Euclidean distance between u[i] and u[j].
     """
+
     idist = np.sqrt((u[i, 0] - u[j, 0])**2 + (u[i, 1] - u[j, 1])**2 + (u[i, 2] - u[j, 2])**2)
     return idist
 
 def calculate_nlength(u, disp, i, j):
-    """
-    This function computes the Euclidean distance between two points u[i] and u[j] considering displacement.
-    
+    """ This function computes the Euclidean distance between two points u[i] and u[j].
     Parameters:
     u (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points.
     disp (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the displacements of the material points.
     i (int): The index of the first point.
     j (int): The index of the second point.
-
     Returns:
-    nlength (float): The Euclidean distance between u[i] and u[j] considering displacement.
+    nlength (float): The Euclidean distance between u[i] and u[j].
     """
     nlength = np.sqrt((u[i, 0] + disp[i, 0] - u[j, 0] - disp[j, 0])**2 + (u[i, 1] + disp[i, 1] - u[j, 1] - disp[j, 1])**2 + (u[i, 2] + disp[i, 2] - u[j, 2] - disp[j, 2])**2)
     return nlength
 
 
 def horizon(total_nodes, u, **kwargs):
-    """ This function computes the horizon of each material point.
+    """ This function determines the material points inside the horizon of each material point.
     Parameters:
     total_nodes (int): The total number of nodes in the grid.
     u (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points.
     delta (float): The horizon of each material point x_k.
     Returns:
-    numfam (numpy.ndarray): A numpy array with dimensions (total_nodes, 1) that specifies Number of family 
-    members of each material point.
-    pointfam (numpy.ndarray): Index array to find the family members in nodefam array
-    nodefam (numpy.ndarray): A numpy array with dimensions (10000000, 1) that specifies the family members of each material point.
+    numfam (numpy.ndarray): A numpy array with dimensions (total_nodes, 1) that specifies the number of material points inside the horizon of each material point.
+    pointfam (numpy.ndarray): A numpy array with dimensions (total_nodes, 1) that specifies the starting index of the material points inside the horizon of each material point.
+    nodefam (numpy.ndarray): A numpy array with dimensions (10000000, 1) that specifies the material points inside the horizon of each material point.
     """
 
     delta = kwargs['delta']
@@ -201,7 +192,15 @@ def horizon(total_nodes, u, **kwargs):
     return [numfam, pointfam, nodefam]
 
 def surface_correction(total_nodes, u, mat_family, dir, **kwargs):
-
+    """ This function computes the surface correction factor for each material point.
+    Parameters:
+    total_nodes (int): The total number of nodes in the grid.
+    u (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points.
+    mat_family (list): A list of numpy arrays that specifies the material points inside the horizon of each material point.
+    dir (int): The direction of loading.
+    Returns:
+    fncst (numpy.ndarray): A numpy array with dimensions (total_nodes, 1) that specifies the surface correction factor for each material point.
+    """
     
     numfam, pointfam, nodefam = mat_family  # Unpack the arrays from horizon function
 
