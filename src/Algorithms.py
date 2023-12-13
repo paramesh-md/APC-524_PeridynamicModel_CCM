@@ -1,8 +1,15 @@
 import numpy as np
+import warnings
 import math
 import mesh_file as mf
 
-def mass_vector(total_nodes, delta, bc, dx, **kwargs):
+def mass_vector(total_nodes, **kwargs):
+
+    delta = kwargs['delta']
+    bc = kwargs['bond_constant']
+    dx = kwargs['dx']
+
+    dt = kwargs['total_time']/kwargs['time_steps']
 
     mass_array = np.zeros((total_nodes, 3), dtype=int)
 
@@ -10,27 +17,45 @@ def mass_vector(total_nodes, delta, bc, dx, **kwargs):
 
     return mass_array
 
-def solver(total_nodes, alflag, dx, **kwargs):
+def solver(total_nodes, u, alflag, mat_family, fncst, **kwargs):
 
     dtemp = kwargs['dtemp']
     pressure = kwargs['applied_pressure']
+    dx = kwargs['dx']
+    vol = kwargs['volume']
+    bc = kwargs['bond_constant']
+    dt = kwargs['time_steps']
+    delta = kwargs['delta']
 
-    bforce = np.zeros((total_nodes, 1), dtype=float)
+    massvec = mass_vector(total_nodes, **kwargs)
+
+    radij = 0.5 * delta
+    alpha = 23.0e-6
+
+    numfam, pointfam, nodefam = mat_family
+
+    bforce = np.zeros((total_nodes, 3), dtype=float)
     disp = np.zeros((total_nodes, 3), dtype=float)
+
     velocity = np.zeros((total_nodes, 3), dtype=float)
-    
 
-    bforce[alflag[:, 0] == 1, 0] = pressure / dx
+    vel_half = np.zeros((total_nodes, 3), dtype=float)
+    vel_half_old = np.zeros((total_nodes,3), dtype=float)
 
-    for t in rang(1, **kwargs['time_steps']+1):
+    pforce = np.zeros((total_nodes, 3), dtype=float)
+    pforceold = np.zeros((total_nodes, 3), dtype=float)
 
-        for n in range(total_nodes):
-            pforce = np.zeros((total_nodes, 1), dtype=float)
+    bforce[alflag[:, 0] == 1, 0] = pressure/dx
 
-            for j in range(1, numfam[n, 0]+1):
-                cnode = nodefam[pointfam[n, 0] + j-1, 0]
-                idist = mf.calculate_idist(u, n, cnode)
-                nlength = mf.calculate_nlength(u, disp, n, cnode)
+    for t in range(1, kwargs['time_steps']+1):
+
+        for i in range(total_nodes):
+            pforce = np.zeros((total_nodes, 3), dtype=float)
+
+            for j in range(1, numfam[i, 0]+1):
+                cnode = nodefam[pointfam[i, 0] + j-1, 0]
+                idist = mf.calculate_idist(u, i, cnode)
+                nlength = mf.calculate_nlength(u, disp, i, cnode)
 
                 if idist <= delta - radij:
                     fac = 1.0
@@ -50,7 +75,15 @@ def solver(total_nodes, alflag, dx, **kwargs):
                         theta = 90.0 * math.pi / 180.0
 
                     else:
-                        theta = math.atan(abs(u[cnode, 1] - u[i, 1]) / abs(u[cnode, 0] - u[i, 0]))
+                        try:
+                            with warnings.catch_warnings():
+                                warnings.filterwarnings('error')
+                                theta = math.atan(abs(u[cnode, 1] - u[i, 1])/abs(u[cnode, 0] - u[i, 0]))
+
+                        except Warning as e:
+                            print(f"Warning caught: {e}")
+                            print(u[cnode, 0], u[i, 0])
+                        
 
                     phi = 90.0 * math.pi / 180.0
 
@@ -72,26 +105,80 @@ def solver(total_nodes, alflag, dx, **kwargs):
                     scx = (fncst[i, 0] + fncst[cnode, 0]) / 2.0
                     scy = (fncst[i, 1] + fncst[cnode, 1]) / 2.0
                     scz = (fncst[i, 2] + fncst[cnode, 2]) / 2.0
+    
                     scr = 1.0 / (((math.cos(theta) * math.sin(phi))**2 / scx**2) + ((math.sin(theta) * math.sin(phi))**2 / scy**2) + (math.cos(phi)**2 / scz**2))
                     scr = math.sqrt(scr)
 
-                # Calculation of the peridynamic force in x, y and z directions 
-                # acting on a material point i due to a material point j
-                dforce1 = bc * ((nlength - idist) / idist - (alpha * dtemp)) * vol * scr * fac * (u[cnode, 0] + disp[cnode, 0] - u[i, 0] - disp[i, 0]) / nlength 
-                dforce2 = bc * ((nlength - idist) / idist - (alpha * dtemp)) * vol * scr * fac * (u[cnode, 1] + disp[cnode, 1] - u[i, 1] - disp[i, 1]) / nlength
-                dforce3 = bc * ((nlength - idist) / idist - (alpha * dtemp)) * vol * scr * fac * (u[cnode, 2] + disp[cnode, 2] - u[i, 2] - disp[i, 2]) / nlength
+                # Calculation of the peridynamic force in x, y and z directions acting on a material point i due to a material point j
+                dforce1 = bc*((nlength - idist)/idist - (alpha * dtemp))*vol*scr*fac*(u[cnode, 0] + disp[cnode, 0] - u[i, 0] - disp[i, 0])/nlength 
+                dforce2 = bc*((nlength - idist)/idist - (alpha * dtemp))*vol*scr*fac*(u[cnode, 1] + disp[cnode, 1] - u[i, 1] - disp[i, 1])/nlength
+                dforce3 = bc*((nlength - idist)/idist - (alpha * dtemp))*vol*scr*fac*(u[cnode, 2] + disp[cnode, 2] - u[i, 2] - disp[i, 2])/nlength
 
                 pforce[i, 0] = pforce[i, 0] + dforce1      
                 pforce[i, 1] = pforce[i, 1] + dforce2  
                 pforce[i, 2] = pforce[i, 2] + dforce3
 
+        # Adaptive Dynamic Relaxation
+
+        cn = 0.0
+        cn1 = 0.0
+        cn2 = 0.0
+
+        for i in range(total_nodes):
+
+            if vel_half_old[i, 0] != 0.0:
+                cn1 -= disp[i, 0] * disp[i, 0] * (pforce[i, 0]/massvec[i, 0] - pforceold[i, 0]/massvec[i, 0])/(dt*vel_half_old[i, 0])
+
+            if vel_half_old[i, 1] != 0.0:
+                cn1 -= disp[i, 1] * disp[i, 1] * (pforce[i, 1]/massvec[i, 1] - pforceold[i, 1]/massvec[i, 1])/(dt*vel_half_old[i, 1])
+
+            if vel_half_old[i, 2] != 0.0:
+                cn1 -= disp[i, 2] * disp[i, 2] * (pforce[i, 2]/massvec[i, 2] - pforceold[i, 2]/massvec[i, 2])/(dt*vel_half_old[i, 2])
                 
+            cn2 += disp[i, 0] * disp[i, 0]
+            cn2 += disp[i, 1] * disp[i, 1]
+            cn2 += disp[i, 2] * disp[i, 2]
 
+        if cn2 != 0.0:
+            if (cn1/cn2) > 0.0:
+                cn = 2.0*math.sqrt(cn1/cn2)
+            else:
+                cn = 0.0
+        else:
+            cn = 0.0
 
+        if cn > 2.0:
+            cn = 1.9
 
+        for val in range(total_nodes):
 
+            if t == 1:
+                vel_half[i, 0] = (dt/massvec[i, 0])*(pforce[i, 0] + bforce[i, 0])/2.0
+                vel_half[i, 1] = (dt/massvec[i, 1])*(pforce[i, 1] + bforce[i, 1])/2.0
+                vel_half[i, 2] = (dt/massvec[i, 2])*(pforce[i, 2] + bforce[i, 2])/2.0
 
-    return bforce
+            else:
+                vel_half[i, 0] = ((2.0 - cn*dt)*vel_half_old[i, 0] + (2*dt/massvec[i, 0])*(pforce[i, 0] + bforce[i, 0]))/(2.0 + cn*dt)
+                vel_half[i, 1] = ((2.0 - cn*dt)*vel_half_old[i, 1] + (2*dt/massvec[i, 1])*(pforce[i, 1] + bforce[i, 1]))/(2.0 + cn*dt)
+                vel_half[i, 2] = ((2.0 - cn*dt)*vel_half_old[i, 2] + (2*dt/massvec[i, 2])*(pforce[i, 2] + bforce[i, 2]))/(2.0 + cn*dt)
+
+            velocity[i, 0] = 0.5*(vel_half_old[i, 0] + vel_half[i, 0])
+            velocity[i, 1] = 0.5*(vel_half_old[i, 1] + vel_half[i, 1])
+            velocity[i, 2] = 0.5*(vel_half_old[i, 2] + vel_half[i, 2])
+
+            disp[i, 0] = disp[i, 0] + vel_half[i, 0] * dt
+            disp[i, 1] = disp[i, 1] + vel_half[i, 1] * dt
+            disp[i, 2] = disp[i, 2] + vel_half[i, 2] * dt
+
+            vel_half_old[i, 0] = vel_half[i, 0]
+            vel_half_old[i, 1] = vel_half[i, 1]
+            vel_half_old[i, 2] = vel_half[i, 2]
+
+            pforceold[i, 0] = pforce[i, 0]
+            pforceold[i, 1] = pforce[i, 1]
+            pforceold[i, 2] = pforce[i, 2]
+
+    return disp
 
 
 

@@ -9,6 +9,11 @@ global_vars = {
     'thick':0.1,
     'modulus':200.0,
     'boundary_direction':1,
+    'loading_direction':[1, 2, 3],
     'applied_pressure':200.0,
-    'dtemp':0.0
-    }
+    'dtemp':0.0,
+    'volume':None,
+    'area':None,
+    'delta':None,
+    'dx':None,
+    'bond_constant':None}

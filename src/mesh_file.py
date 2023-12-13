@@ -19,15 +19,22 @@ def mat_parameters(**kwargs):
     bc (float): The peridynamic bond constant.
     """
     
-    dx = kwargs['length'] / kwargs['num_points'][0]
-    dy = kwargs['width'] / kwargs['num_points'][1]
-    dz = kwargs['thick'] / kwargs['num_points'][2]
+    kwargs['dx'] = kwargs['length'] / kwargs['num_points'][0]
+    kwargs['dy'] = kwargs['width'] / kwargs['num_points'][1]
+    kwargs['dz'] = kwargs['thick'] / kwargs['num_points'][2]
     
-    delta = 3.015 * dx
-
+    delta = 3.015 * kwargs['dx']
     bc = (12.0 * kwargs['modulus'])/(math.pi*(delta*delta*delta*delta))
 
-    return [dx, dy, dz, delta, bc]
+    area = kwargs['dx'] * kwargs['dx']
+    volume = area * kwargs['dx']
+
+    kwargs['delta'] = delta
+    kwargs['bond_constant'] = bc
+    kwargs['area'] = area
+    kwargs['volume'] = volume
+
+    return kwargs
 
 def total_nodes(**kwargs):
     """ This function calculates the total number of nodes in the grid.
@@ -58,7 +65,7 @@ def total_nodes(**kwargs):
     return totnode
 
 
-def create_grid(total_nodes, dx, **kwargs):
+def create_grid(total_nodes, **kwargs):
     """ This function specifies the locations of the material points.
     Parameters:
     total_nodes (int): The total number of nodes in the grid.
@@ -76,6 +83,8 @@ def create_grid(total_nodes, dx, **kwargs):
     alflag = np.zeros((total_nodes, 1), dtype=int)
     dimension = len(kwargs['num_points'])
     x = np.zeros((total_nodes, dimension), dtype=float)
+
+    dx = kwargs['dx']
 
     indices = product(range(kwargs['num_points'][2]), range(kwargs['num_points'][1]), range(kwargs['num_points'][0]))
 
@@ -95,7 +104,7 @@ def create_grid(total_nodes, dx, **kwargs):
 
     return x, alflag
 
-def boundary_region(x, dx, **kwargs):
+def boundary_region(x, **kwargs):
     """ This function specifies the material points in the boundary region.
     Parameters:
     x (numpy.ndarray): A numpy array with dimensions (total_nodes, 3) that specifies the locations of the material points.
@@ -112,6 +121,8 @@ def boundary_region(x, dx, **kwargs):
     ndivz, ndivy, nbnds = kwargs['num_points'][2], kwargs['num_points'][1], 3
 
     indices = product(range(1, ndivz + 1), range(1, ndivy + 1), range(1, nbnds + 1))
+
+    dx = kwargs['dx']
 
     for nnum, (i, j, k) in enumerate(indices, start=10000):
         coordx = - (dx / 2.0) - (k - 1) * dx
@@ -156,7 +167,7 @@ def calculate_nlength(u, disp, i, j):
     return nlength
 
 
-def horizon(total_nodes, u, delta):
+def horizon(total_nodes, u, **kwargs):
     """ This function computes the horizon of each material point.
     Parameters:
     total_nodes (int): The total number of nodes in the grid.
@@ -168,6 +179,8 @@ def horizon(total_nodes, u, delta):
     pointfam (numpy.ndarray): Index array to find the family members in nodefam array
     nodefam (numpy.ndarray): A numpy array with dimensions (10000000, 1) that specifies the family members of each material point.
     """
+
+    delta = kwargs['delta']
 
     numfam = np.zeros((total_nodes, 1), dtype=int)
     pointfam = np.zeros((total_nodes, 1), dtype=int)
@@ -187,18 +200,22 @@ def horizon(total_nodes, u, delta):
 
     return [numfam, pointfam, nodefam]
 
-def surface_correction(total_nodes, dx, u, delta, mat_family, bc, loading_direction, **kwargs):
+def surface_correction(total_nodes, u, mat_family, dir, **kwargs):
 
     
     numfam, pointfam, nodefam = mat_family  # Unpack the arrays from horizon function
-    area = dx * dx
-    volume = area * dx
 
+    dx = kwargs['dx']
+    delta = kwargs['delta']
+    bc = kwargs['bond_constant']
+    volume = kwargs['volume']
+    loading_direction = dir
+    
     sedload1 = 0.6 * kwargs['modulus'] * 1.0e-6   # Strain energy density from CCM
+
     radij = 0.5 * delta
     disp = np.zeros((total_nodes, 3), dtype=float)
-    val = loading_direction
-
+    
     if loading_direction == 0:
         disp[:, 0] = 0.001 * u[:, 0]
         disp[:, 1:] = 0.0
@@ -213,8 +230,8 @@ def surface_correction(total_nodes, dx, u, delta, mat_family, bc, loading_direct
         disp[:, 0] = 0.0
         disp[:, 1] = 0.0
         
-    strain_dens = np.zeros((total_nodes, 3), dtype=float)
-    fncst = np.zeros((total_nodes, 3), dtype=float)
+    strain_dens = np.zeros((total_nodes, 1), dtype=float)
+    fncst = np.zeros((total_nodes, 1), dtype=float)
 
     for i in range(total_nodes):
         for j in range(1,numfam[i, 0]+1):
@@ -234,12 +251,12 @@ def surface_correction(total_nodes, dx, u, delta, mat_family, bc, loading_direct
             else:
                 fac = 0.0
             
-            strain_dens[i, val] += 0.5 * 0.5 * bc * ((nlength - idist) / idist)**2 * idist * volume * fac
+            strain_dens[i, 0] += 0.5 * 0.5 * bc * ((nlength - idist) / idist)**2 * idist * volume * fac
         
-        #print(strain_dens[i, val])
-        fncst[i, val] = sedload1 / strain_dens[i, val]
+        
+        fncst[i, 0] = sedload1 / strain_dens[i, 0]
     
-    return strain_dens, fncst
+    return fncst
             
         
 
