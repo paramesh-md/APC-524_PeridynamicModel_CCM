@@ -113,7 +113,7 @@ class TestMeshFile(unittest.TestCase):
         }
         x, alflag = mesh_file.create_grid(total_nodes, **kwargs)
         # Load expected results from a file or define them directly in the test
-        expected_x = np.load('expected_u.npy')
+        expected_x = np.load('tests/expected_u.npy')
         #expected_alflag = np.load('expected_alflag.npy')
         np.testing.assert_array_equal(x, expected_x)
         #np.testing.assert_array_equal(alflag, expected_alflag)
