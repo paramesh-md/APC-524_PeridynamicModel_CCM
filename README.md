@@ -4,7 +4,7 @@ Final Project for the course, APC 524: Software Engineering for Scientific Compu
 
 Contributors: Parameshwaran Pasupathy
 
-![Image text](Image URL)
+![Image text](images/peridynamic_image.jpg)
 
 ##**Documentation**
 
