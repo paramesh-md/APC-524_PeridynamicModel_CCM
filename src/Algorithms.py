@@ -1,9 +1,18 @@
 import numpy as np
 import warnings
 import math
-import mesh_file as mf
+from src import mesh_file as mf
 
 def mass_vector(total_nodes, **kwargs):
+    """This function calculates the mass vector for each material point in the domain. 
+    The mass vector is calculated using the following equation:
+    mass_vector = 0.25 * dt * dt * (4/3) * math.pi * (delta * delta * delta) * bond_constant / dx
+    Parameters:
+    total_nodes (int) : Total number of nodes in the domain
+    **kwargs : Keyword arguments passed from the main function
+    Returns:
+    mass_array (numpy array) : Mass vector for each material point in the domain
+    """
 
     delta = kwargs['delta']
     bc = kwargs['bond_constant']
@@ -18,6 +27,19 @@ def mass_vector(total_nodes, **kwargs):
     return mass_array
 
 def solver(total_nodes, u, alflag, mat_family, fncst, **kwargs):
+    """This function solves the equations of motion using the adaptive dynamic relaxation method.
+    Parameters:
+    total_nodes (int) : Total number of nodes in the domain
+    u (numpy array) : Material points in the model
+    alflag (numpy array) : Flag for each material point
+    mat_family (tuple) : Tuple containing the number of material points in the horizon of each material point, 
+    the starting index of the material points in the horizon of each material point and the material points in the horizon of each material point
+    fncst (numpy array) : Surface correction factor for each material point
+    **kwargs : Keyword arguments passed from the main function
+    Returns:
+    disp (numpy array) : Displacement of each material point in the domain
+    """
+
 
     dtemp = kwargs['dtemp']
     pressure = kwargs['applied_pressure']
@@ -75,16 +97,8 @@ def solver(total_nodes, u, alflag, mat_family, fncst, **kwargs):
                         theta = 90.0 * math.pi / 180.0
 
                     else:
-                        try:
-                            with warnings.catch_warnings():
-                                warnings.filterwarnings('error')
-                                theta = math.atan(abs(u[cnode, 1] - u[i, 1])/abs(u[cnode, 0] - u[i, 0]))
-
-                        except Warning as e:
-                            print(f"Warning caught: {e}")
-                            print(u[cnode, 0], u[i, 0])
+                        theta = math.atan(abs(u[cnode, 1] - u[i, 1])/abs(u[cnode, 0] - u[i, 0]))
                         
-
                     phi = 90.0 * math.pi / 180.0
 
                     scx = (fncst[i,0] + fncst[cnode,0])/2
@@ -99,7 +113,10 @@ def solver(total_nodes, u, alflag, mat_family, fncst, **kwargs):
                     scr = scz
 
                 else:
-                    theta = math.atan(abs(u[cnode, 1] - u[i, 1]) / abs(u[cnode, 0] - u[i, 0]))
+                    if abs(u[cnode, 0] - u[i, 0]) <= 1e-10:
+                        theta = 90.0 * math.pi / 180.0
+                    else:
+                        theta = math.atan(abs(u[cnode, 1] - u[i, 1]) / abs(u[cnode, 0] - u[i, 0]))
                     phi = math.acos(abs(u[cnode, 2] - u[i, 2]) / idist)
 
                     scx = (fncst[i, 0] + fncst[cnode, 0]) / 2.0
@@ -177,6 +194,7 @@ def solver(total_nodes, u, alflag, mat_family, fncst, **kwargs):
             pforceold[i, 0] = pforce[i, 0]
             pforceold[i, 1] = pforce[i, 1]
             pforceold[i, 2] = pforce[i, 2]
+        
 
     return disp
 
