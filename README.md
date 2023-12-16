@@ -10,4 +10,4 @@ Contributors: Parameshwaran Pasupathy
 
 'nox -s docs'
 
-A description of the funcstion can be found in _build/html/index.html.
+HTML documentation can be found in _build/html/index.html.
