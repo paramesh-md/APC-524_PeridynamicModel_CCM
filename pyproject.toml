@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "PyPeridynamics"
+version = "0.1.0"
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "scipy",
+  "numpy",
+  "matplotlib",
+  "warnings",
+  "itertools",
+]
+
+docs = [
+  "sphinx",
+  "myst_parser >=0.13",
+  "sphinx >=4.0",
+  "sphinx-copybutton",
+  "sphinx-autodoc-typehints",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.nox]
+sessions = ["docs"]
+
+[tool.nox.session.docs]
+python = "3.11"
+commands = [
+    "pip install sphinx myst_parser sphinx_copybutton sphinx_autodoc_typehints",
+    "cd docs && make html"
+]
+
+[tool.ruff]
+select = [
+  "E", "F", "W", # flake8
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "RUF",         # Ruff-specific
+  "UP",          # pyupgrade
+]
+
+
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
