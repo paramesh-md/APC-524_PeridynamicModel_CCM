@@ -8,5 +8,6 @@ Contributors: Parameshwaran Pasupathy
 <image ref: https://doi.org/10.1007/s00366-023-01796-w>
 ## **Documentation**
 
-nox -s docs
+'nox -s docs'
+
 A description of the funcstion can be found in _build/html/index.html.
