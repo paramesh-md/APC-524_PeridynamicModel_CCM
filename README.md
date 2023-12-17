@@ -11,7 +11,7 @@ Contributors: Parameshwaran Pasupathy
 
 To run the python code, define problem using global_variables.py and run main.py.
 
-To compile the Fortran codes for block in tension and block under transverse loading, compile code with makefile using the command, 
+To compile the Fortran codes for block in tension and longitudinal vibration of bar, compile code with makefile using the command, 
 
 make PROG=Filename. 
 
