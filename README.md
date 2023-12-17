@@ -9,8 +9,12 @@ Contributors: Parameshwaran Pasupathy
 
 ## **Usage**
 
-To run the python code, define problem using global_variables.py and run main.py
-To compile the Fortran codes for block in tension and block under transverse loading, compile code with makefile using the command, make PROG=Filename. 
+To run the python code, define problem using global_variables.py and run main.py.
+
+To compile the Fortran codes for block in tension and block under transverse loading, compile code with makefile using the command, 
+
+make PROG=Filename. 
+
 To clean up the executables, run make clean.
 
 ## **Documentation**
